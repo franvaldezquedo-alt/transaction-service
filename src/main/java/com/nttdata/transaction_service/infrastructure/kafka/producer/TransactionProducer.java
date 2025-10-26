@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class TransactionProducer {
-    private static final String TOPIC = "account-validation-request";
+    /*private static final String TOPIC = "account-validation-request";
 
     private final KafkaTemplate<String, AccountValidationRequest> kafkaTemplate;
 
@@ -24,5 +24,5 @@ public class TransactionProducer {
 
         kafkaTemplate.send(TOPIC, accountNumber, request);
         System.out.println("Mensaje enviado a Kafka: Retiro de " + amount + " de la cuenta " + accountNumber);
-    }
+    }*/
 }

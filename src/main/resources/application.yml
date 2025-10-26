@@ -2,6 +2,9 @@ server:
   port: 8099
 
 spring:
+  application:
+    name: transaction-service
+
   kafka:
     bootstrap-servers: localhost:9092
 
@@ -16,13 +19,23 @@ spring:
       group-id: transaction-service-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      enable-auto-commit: false
       properties:
         schema.registry.url: http://localhost:8081
         specific.avro.reader: true
 
+    listener:
+      ack-mode: manual
+
   data:
     mongodb:
       uri: mongodb://localhost:27017/bd-transaction
+
+# Topics de Kafka
+kafka:
+  topics:
+    account-validation-request: account-validation-request
+    account-validation-response: account-validation-response
 
 # Timeout para validación de cuenta
 transaction:
