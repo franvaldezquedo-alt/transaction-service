@@ -22,7 +22,8 @@ public class TransactionAdapter implements TransactionRepositoryOutputPort {
 
     @Override
   public Flux<Transaction> findAllTransactionByAccountNumber(String accountNumber) {
-    return null;
+    return repository.findAllTransactionByAccountNumber(accountNumber)
+            .map(mapper::toDomain);
   }
 
   @Override

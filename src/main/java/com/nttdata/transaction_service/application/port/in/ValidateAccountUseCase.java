@@ -14,4 +14,6 @@ public interface ValidateAccountUseCase {
      * @return respuesta de validación
      */
     Mono<AccountValidationResponse> validateWithdraw(String transactionId, String accountNumber, BigDecimal amount);
+    Mono<AccountValidationResponse> validateDeposit(String transactionId, String accountNumber, BigDecimal amount);
+    Mono<AccountValidationResponse> validateTransfer(String transactionId, String fromAccountNumber, String toAccountNumber, BigDecimal amount);
 }

@@ -1,4 +1,4 @@
-package com.nttdata.transaction_service.infrastructure.kafka.consumer;
+/*package com.nttdata.transaction_service.infrastructure.kafka.consumer;
 
 import com.ettdata.avro.AccountValidationResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -20,4 +20,4 @@ public class AccountValidationResponseConsumer {
             log.warn("Transacción rechazada: {}", response.getMessageResponse());
         }
     }
-}
+}*/

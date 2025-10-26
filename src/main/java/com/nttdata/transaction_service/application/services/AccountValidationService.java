@@ -47,4 +47,56 @@ public class AccountValidationService implements ValidateAccountUseCase {
                 ));
     }
 
+    @Override
+    public Mono<AccountValidationResponse> validateDeposit(
+            String transactionId,
+            String accountNumber,
+            BigDecimal amount) {
+
+        log.info("🔄 Validando Deposito: transactionId={}, account={}, amount={}",
+                transactionId, accountNumber, amount);
+
+        return accountValidationPort.sendDepositRequest(transactionId, accountNumber, amount)
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .doOnSuccess(response ->
+                        log.info("✅ Validación de deposito exitosa: transactionId={}", transactionId))
+                .doOnError(error ->
+                        log.error("❌ Error validando deposito: transactionId={}", transactionId))
+                .onErrorResume(error -> Mono.just(
+                        AccountValidationResponse.newBuilder()
+                                .setTransactionId(transactionId)
+                                .setAccountNumber(accountNumber)
+                                .setCodResponse(503)
+                                .setMessageResponse("Servicio no disponible")
+                                .build()
+                ));
+    }
+
+
+    @Override
+    public Mono<AccountValidationResponse> validateTransfer(
+            String transactionId,
+            String fromAccountNumber,
+            String toAccountNumber,
+            BigDecimal amount) {
+
+        log.info("🔄 Validando Transferencia: transactionId={}, fromAccountNumber={}, toAccountNumber={}, amount={}",
+                transactionId, fromAccountNumber, toAccountNumber, amount);
+
+        return accountValidationPort.sendTransferRequest(transactionId, fromAccountNumber, toAccountNumber, amount)
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .doOnSuccess(response ->
+                        log.info("✅ Validación de transferencia exitosa: transactionId={}", transactionId))
+                .doOnError(error ->
+                        log.error("❌ Error validando transferencia: transactionId={}", transactionId))
+                .onErrorResume(error -> Mono.just(
+                        AccountValidationResponse.newBuilder()
+                                .setTransactionId(transactionId)
+                                .setAccountNumber(fromAccountNumber)
+                                .setCodResponse(503)
+                                .setMessageResponse("Servicio no disponible")
+                                .build()
+                ));
+    }
+
 }
