@@ -1,5 +1,5 @@
 server:
-  port: 8097
+  port: 8099
 
 spring:
   kafka:
@@ -9,16 +9,15 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
       properties:
-        schema.registry.url: http://localhost:8082
+        schema.registry.url: http://localhost:8081
         auto.register.schemas: true
 
     consumer:
+      group-id: transaction-service-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
-      group-id: transaction-service-group
-      auto-offset-reset: earliest
       properties:
-        schema.registry.url: http://localhost:8082
+        schema.registry.url: http://localhost:8081
         specific.avro.reader: true
 
   data:
@@ -29,3 +28,8 @@ spring:
 transaction:
   validation:
     timeout-seconds: 10
+
+logging:
+  level:
+    root: INFO
+    com.nttdata.transaction_service: DEBUG

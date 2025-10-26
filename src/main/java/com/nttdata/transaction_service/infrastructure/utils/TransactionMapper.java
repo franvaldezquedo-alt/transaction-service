@@ -1,5 +1,6 @@
 package com.nttdata.transaction_service.infrastructure.utils;
 
+import com.ettdata.avro.AccountValidationResponse;
 import com.nttdata.transaction_service.domain.dto.TransactionListResponse;
 import com.nttdata.transaction_service.domain.dto.TransactionResponse;
 import com.nttdata.transaction_service.domain.model.Transaction;
@@ -8,6 +9,8 @@ import com.nttdata.transaction_service.infrastructure.dto.DepositRequest;
 import com.nttdata.transaction_service.infrastructure.dto.TransferRequest;
 import com.nttdata.transaction_service.infrastructure.dto.WithdrawalRequest;
 import com.nttdata.transaction_service.infrastructure.entity.TransactionEntity;
+import org.springframework.stereotype.Component;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -15,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Component
 public class TransactionMapper {
   private static final String DEFAULT_DEPOSIT_DESC = "Cash deposit";
   private static final String DEFAULT_WITHDRAWAL_DESC = "Withdrawal";
@@ -139,6 +143,16 @@ public class TransactionMapper {
           getOrDefault(request.getDescription(),
                 TRANSFER_FROM_PREFIX + request.getSourceNumberAccount())
     );
+  }
+
+  public TransactionResponse toResponseFromKafka(AccountValidationResponse kafkaResponse, Transaction transaction) {
+    return TransactionResponse.builder()
+            .codResponse(kafkaResponse.getCodResponse())
+            .messageResponse(kafkaResponse.getMessageResponse() != null
+                    ? kafkaResponse.getMessageResponse().toString()
+                    : "Sin mensaje")
+            .codEntity(transaction.getTransactionId())
+            .build();
   }
 
   // ===== Response Builders =====

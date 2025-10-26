@@ -3,82 +3,78 @@ package com.nttdata.transaction_service.infrastructure.adapter;
 import com.ettdata.avro.AccountValidationRequest;
 import com.ettdata.avro.AccountValidationResponse;
 import com.nttdata.transaction_service.application.port.out.AccountValidationOutputPort;
-import com.nttdata.transaction_service.domain.dto.AccountValidationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
-import java.util.Map;
-import java.util.UUID;
+import reactor.core.publisher.MonoSink;
+
+import java.math.BigDecimal;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class KafkaAccountValidationAdapter implements AccountValidationOutputPort {
 
-  @Value("${transaction.validation.timeout-seconds:10}")
-  private int timeoutSeconds;
+    private static final String REQUEST_TOPIC = "account-validation-request";
+    private static final String RESPONSE_TOPIC = "account-validation-response";
 
-  private static final String REQUEST_TOPIC = "account-validation-request";
+    private final KafkaTemplate<String, AccountValidationRequest> kafkaTemplate;
 
-  // Cache para almacenar las respuestas pendientes
-  private final Map<String, Sinks.One<AccountValidationResponse>> pendingValidations =
-        new ConcurrentHashMap<>();
+    // Map para asociar transactionId a MonoSink
+    private final ConcurrentMap<String, MonoSink<AccountValidationResponse>> pendingResponses = new ConcurrentHashMap<>();
 
-  @Override
-  public Mono<AccountValidationResult> validateAccount(String accountNumber, String transactionType, Double amount) {
-    String transactionId = UUID.randomUUID().toString();
-    log.info("🔍 Solicitando validación - Account: {}, Type: {}, Amount: {}",
-          accountNumber, transactionType, amount);
-
-    Sinks.One<AccountValidationResponse> responseSink = Sinks.one();
-
-    return Mono.<AccountValidationResult>create(sink -> {
-      try {
+    @Override
+    public Mono<AccountValidationResponse> sendWithdrawRequest(String transactionId, String accountNumber, BigDecimal amount) {
         AccountValidationRequest request = AccountValidationRequest.newBuilder()
-              .setTransactionId(transactionId)
-              .setAccountNumber(accountNumber)
-              .setCustomerId("")
-              .setAccountType("")
-              .setAmount(amount)
-              .setBalance(null)
-              .setMinimumOpeningAmount(null)
-              .setTransactionType(transactionType)
-              .build();
+                .setTransactionId(transactionId)
+                .setAccountNumber(accountNumber)
+                .setTransactionType("WITHDRAW")
+                .setAmount(amount.doubleValue())
+                .build();
 
-        pendingValidations.put(transactionId, responseSink);
+        return Mono.create(sink -> {
+            // Guardamos el sink para completar cuando llegue la respuesta
+            pendingResponses.put(transactionId, sink);
+            log.info("🔑 Sink registrado para transactionId: {}. Total pendientes: {}",
+                    transactionId, pendingResponses.size());
 
-        kafkaTemplate.send(REQUEST_TOPIC, accountNumber, request)
-              .addCallback(
-                    result -> log.info("✅ Solicitud enviada - TxId: {}", transactionId),
-                    ex -> {
-                      log.error("❌ Error enviando solicitud", ex);
-                      pendingValidations.remove(transactionId);
-                      sink.error(ex);
-                    }
-              );
+            // ✅ JAVA 17 - CompletableFuture con whenComplete
+            kafkaTemplate.send(REQUEST_TOPIC, accountNumber, request)
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
+                            log.error("❌ Error enviando mensaje a Kafka: {}", ex.getMessage(), ex);
+                            pendingResponses.remove(transactionId);
+                            sink.error(ex);
+                        } else {
+                            log.info("✅ Mensaje de retiro enviado a Kafka: transactionId={}, accountNumber={}, amount={}",
+                                    transactionId, accountNumber, amount);
+                        }
+                    });
+        });
+    }
 
-        responseSink.asMono()
-              .timeout(Duration.ofSeconds(timeoutSeconds))
-              .map(this::mapToResult)
-              .doOnSuccess(result -> {
-                log.info("✅ Validación completada - Valid: {}", result.isValid());
-                sink.success(result);
-              })
-              .doOnError(error -> {
-                log.error("❌ Timeout o error: {}", error.getMessage());
-                pendingValidations.remove(transactionId);
-                sink.error(new RuntimeException("Validation timeout", error));
-              })
-              .subscribe();
+    // Consumer para escuchar respuestas
+    @KafkaListener(topics = RESPONSE_TOPIC, groupId = "transaction-service-group")
+    public void consumeAccountValidationResponse(AccountValidationResponse response) {
+        String transactionId = response.getTransactionId().toString(); // ⚠️ Convertir CharSequence a String
 
-      } catch (Exception e) {
-        log.error("❌ Error creando solicitud", e);
-        sink.error(e);
-      }
-    });
-  }
+        log.info("📨 Mensaje recibido de Kafka - TransactionId: {}", transactionId);
+        log.info("📨 Contenido: codResponse={}, messageResponse={}",
+                response.getCodResponse(), response.getMessageResponse());
+
+        MonoSink<AccountValidationResponse> sink = pendingResponses.remove(transactionId);
+
+        if (sink != null) {
+            log.info("✅ Sink encontrado y completado para transactionId: {}", transactionId);
+            sink.success(response);
+        } else {
+            log.warn("⚠️ No se encontró sink para transactionId: {}. Sinks pendientes: {}",
+                    transactionId, pendingResponses.keySet());
+        }
+    }
 }

@@ -1,10 +1,11 @@
 package com.nttdata.transaction_service.application.port.out;
 
-import com.nttdata.transaction_service.domain.dto.AccountValidationResult;
+import com.ettdata.avro.AccountValidationResponse;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
+
 public interface AccountValidationOutputPort {
-  Mono<AccountValidationResult> validateAccount(String accountNumber,
-                                                String transactionType,
-                                                Double amount);
+  Mono<AccountValidationResponse> sendWithdrawRequest(String transactionId, String accountNumber, BigDecimal amount);
+
 }

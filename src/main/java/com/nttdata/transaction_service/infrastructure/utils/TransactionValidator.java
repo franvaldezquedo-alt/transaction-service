@@ -1,39 +1,31 @@
 package com.nttdata.transaction_service.infrastructure.utils;
 
+import com.nttdata.transaction_service.infrastructure.dto.WithdrawalRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 
 @Component
-@Slf4j
 public class TransactionValidator {
 
-  private static final String INVALID_AMOUNT_MESSAGE = "Amount must be greater than zero";
-  private static final String INSUFFICIENT_FUNDS_MESSAGE = "Insufficient funds";
-  private static final String SAME_ACCOUNT_MESSAGE = "Source and target accounts must be different";
+  // Validación "normal" que devuelve String o null
+  public String validateWithdrawal(WithdrawalRequest request) {
+    if (request.getAmount() == null || request.getAmount().signum() <= 0) {
+      return "El monto de retiro debe ser mayor a cero";
+    }
+    if (request.getNumberAccount() == null || request.getNumberAccount().isBlank()) {
+      return "Número de cuenta inválido";
+    }
+    return null; // validación exitosa
+  }
 
-  /**
-   * Validates that the amount is positive
-   */
-  public Mono<Void> validateAmount(BigDecimal amount) {
-    if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-      log.warn("Invalid amount: {}", amount);
-      return Mono.error(new IllegalArgumentException(INVALID_AMOUNT_MESSAGE));
+  // Versión reactiva
+  public Mono<String> validateWithdrawalReactive(WithdrawalRequest request) {
+    String error = validateWithdrawal(request);
+    if (error != null) {
+      return Mono.just(error);
     }
     return Mono.empty();
   }
-
-  /**
-   * Validates that source and target accounts are different
-   */
-  public Mono<Void> validateDifferentAccounts(String sourceAccount, String targetAccount) {
-    if (sourceAccount.equals(targetAccount)) {
-      log.warn("Attempt to transfer to same account: {}", sourceAccount);
-      return Mono.error(new IllegalArgumentException(SAME_ACCOUNT_MESSAGE));
-    }
-    return Mono.empty();
-  }
-
-
 }
